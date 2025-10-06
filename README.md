@@ -69,14 +69,14 @@ Example:
 ```
 
 ### 5. Run Services
-Run 3 - 9
+## Run 3 - 9
 Each of the service folders (3 to 9) run independantly just run ## Make sure to run this either in separate terminal or separate systems (if used ips)
 ```bash
 python server.py 
 python teacher.py 
 python client.py
 ```
-Run 10
+## Run 10
 10 has its own config.json ## Runs on single app.py
 ```bash
 cd 10
