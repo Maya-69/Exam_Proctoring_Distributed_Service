@@ -17,8 +17,8 @@ This setup allows distributed monitoring, data processing, and UI control — de
 ## ⚙️ Overview
 
 ### 📁 Project Structure
+plaintext
 Exam_Proctoring_Distributed_Service/
-│
 ├── 3/
 ├── 4/
 ├── 5/
@@ -27,11 +27,9 @@ Exam_Proctoring_Distributed_Service/
 ├── 8/
 ├── 9/
 │   └── Each folder runs as a distributed service (Python-based)
-│
 ├── 10/
 │   ├── Main UI project
 │   └── config.json        # local only for 10
-│
 ├── config.json            # global for all (1–9), set once and all run on it
 └── README.md
 
