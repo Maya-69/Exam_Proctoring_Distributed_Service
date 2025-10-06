@@ -17,7 +17,7 @@ This setup allows distributed monitoring, data processing, and UI control — de
 ## ⚙️ Overview
 
 ### 📁 Project Structure
-plaintext
+
 Exam_Proctoring_Distributed_Service/
 ├── 3/
 ├── 4/
