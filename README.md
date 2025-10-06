@@ -26,14 +26,15 @@ Exam_Proctoring_Distributed_Service/
 ├── 7/
 ├── 8/
 ├── 9/
-│ └── Each folder runs as a distributed service (Python-based)
+│   └── Each folder runs as a distributed service (Python-based)
 │
 ├── 10/
-│ └── Main UI project
-| └── config.json # local only for 10
+│   └── Main UI project
+│   └── config.json        # local only for 10
 │
-├── config.json # global for all 1-9 set once and all run on it 
+├── config.json            # global for all (1–9), set once and all run on it
 └── README.md
+
 
 ## How to Run
 
