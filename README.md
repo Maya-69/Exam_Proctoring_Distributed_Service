@@ -17,7 +17,7 @@ This setup allows distributed monitoring, data processing, and UI control — de
 ## ⚙️ Overview
 
 ### 📁 Project Structure
-
+```plaintext
 Exam_Proctoring_Distributed_Service/
 ├── 3/
 ├── 4/
@@ -32,6 +32,7 @@ Exam_Proctoring_Distributed_Service/
 │   └── config.json        # local only for 10
 ├── config.json            # global for all (1–9), set once and all run on it
 └── README.md
+```
 
 ## How to Run
 
@@ -59,23 +60,26 @@ Open config.json (in the root folder).
 
 Set "host" to "localhost" or your system’s IP.
 Example:
-```
+```json
 {
     "host": "127.0.0.1",
     "port": 5000
 }
 ```
 
-### 5. Run Services
-## Run 3 - 9
-Each of the service folders (3 to 9) run independantly just run ## Make sure to run this either in separate terminal or separate systems (if used ips)
+### 5. Run Services  
+## Run 3 - 9  
+Each of the service folders (3 to 9) runs independently.  
+Make sure to run this in separate terminals or systems if using IPs.  
+
 ```bash
 python server.py 
 python teacher.py 
 python client.py
 ```
 ## Run 10
-10 has its own config.json ## Runs on single app.py
+Folder 10 has its own `config.json` and runs a single app.
+
 ```bash
 cd 10
 python app.py
