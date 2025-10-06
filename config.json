@@ -1,0 +1,25 @@
+{
+    "server": {
+        "ip": "10.52.219.243",
+        "port": 8000,
+        "protocol": "http"
+    },
+    "teacher": {
+        "ip": "10.52.219.108",
+        "port": 9001,
+        "protocol": "http"
+    },
+    "client": {
+        "ip": "10.52.219.91",   
+        "port": 8001,
+        "protocol": "http"
+    },
+    "student_list": [
+        29,
+        40,
+        42,
+        50,
+        52
+    ],
+    "test_duration_sec": 40
+}

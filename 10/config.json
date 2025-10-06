@@ -1,0 +1,9 @@
+{
+    "server": {
+        "protocol": "http",
+        "ip": "localhost",
+        "port": 5000
+    },
+    "exam_duration_sec": 300,
+    "student_list": [29, 40, 42, 50, 52, 53, 54, 55, 56, 57]
+}

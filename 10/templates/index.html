@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Exam System - Login</title>
+    <link rel="stylesheet" href="static\css\styles.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 2rem;">
+                    📚
+                </div>
+                <h1 style="margin: 0 0 0.5rem 0;">Distributed Exam System</h1>
+                <p style="color: #7f8c8d; font-size: 0.9rem; margin: 0;">
+                    Distributed Systems • Load Balancing • Replication
+                </p>
+            </div>
+
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" placeholder="server / teacher / student ID" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" placeholder="Enter your password" required>
+                </div>
+
+                <button type="submit" class="btn-primary" style="width: 100%;">
+                    Login →
+                </button>
+
+                <div id="errorMessage" class="error-message" style="display: none;"></div>
+            </form>
+
+            <div class="login-info">
+                <h3 style="font-size: 0.95rem; color: #2c3e50; margin-bottom: 1rem;">Login Credentials</h3>
+                <table style="width: 100%; font-size: 0.85rem;">
+                    <tr style="border-bottom: 1px solid #e0e6ed;">
+                        <td style="padding: 0.5rem; font-weight: 600; color: #2c3e50;">Server</td>
+                        <td style="padding: 0.5rem; color: #7f8c8d;">server / server</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #e0e6ed;">
+                        <td style="padding: 0.5rem; font-weight: 600; color: #2c3e50;">Teacher</td>
+                        <td style="padding: 0.5rem; color: #7f8c8d;">teacher / teacher</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem; font-weight: 600; color: #2c3e50;">Students</td>
+                        <td style="padding: 0.5rem; color: #7f8c8d;">29-57 / same as ID</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('errorMessage');
+
+            errorDiv.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({username, password})
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    if (data.user_type === 'student') {
+                        window.location.href = `${data.redirect}?id=${data.student_id}&name=${encodeURIComponent(data.student_name)}`;
+                    } else {
+                        window.location.href = data.redirect;
+                    }
+                } else {
+                    errorDiv.textContent = data.message || 'Invalid credentials. Please try again.';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                errorDiv.textContent = 'Connection error. Please check your connection and try again.';
+                errorDiv.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

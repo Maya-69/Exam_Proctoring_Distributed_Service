@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Dashboard</title>
+    <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h1>👨‍🎓 Student Dashboard</h1>
+        <div>
+            <span id="studentInfo" style="margin-right: 1.5rem; font-weight: 500;"></span>
+            <button onclick="logout()" class="btn-logout">Logout</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="section" id="availableExamsSection">
+            <h2>Available Exams</h2>
+            <div id="notification" style="display:none; padding: 1rem; background: #d4edda; border-left: 4px solid #28a745; border-radius: 8px; margin-bottom: 1rem;">
+                🔔 <strong>New exam posted!</strong> <span id="notificationText"></span>
+            </div>
+            <p style="color: #7f8c8d; margin-bottom: 1.5rem;">Exams appear here when teacher posts them. They update automatically!</p>
+            <div id="availableExams">
+                <div class="text-center" style="padding: 2rem;">
+                    <p style="color: #95a5a6;">Loading available exams...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section" id="examSection" style="display: none;">
+            <div class="exam-header">
+                <div>
+                    <h2 style="margin: 0;">Question <span id="questionNumber">1</span> of <span id="totalQuestions">10</span></h2>
+                    <p style="color: #7f8c8d; margin: 0.5rem 0 0 0;" id="examTitle"></p>
+                </div>
+                <div class="timer">
+                    <span>⏱️ </span>
+                    <span id="timeRemaining" class="timer-value">05:00</span>
+                </div>
+            </div>
+
+            <div class="question-box">
+                <p id="questionText" class="question-text"></p>
+                <div id="optionsContainer" class="options-container"></div>
+                <button onclick="submitAnswer()" class="btn-primary" id="submitAnswerBtn">
+                    Submit Answer →
+                </button>
+            </div>
+        </div>
+
+        <div class="section" id="resultsSection" style="display: none;">
+            <h2>Exam Completed! 🎉</h2>
+            <div class="result-box">
+                <h3 style="margin-bottom: 1rem;">Your Results</h3>
+                <p class="result-score">Score: <span id="resultScore"></span>/10</p>
+                <p class="result-marks">Final Marks: <span id="resultMarks"></span>/100</p>
+                <p style="margin-top: 1rem; opacity: 0.9;">Submission: <span id="resultType"></span></p>
+                <button onclick="viewAllResults()" class="btn-secondary" style="margin-top: 1.5rem; background: white; color: #667eea;">
+                    View All My Results
+                </button>
+            </div>
+        </div>
+
+        <div class="section" id="myResultsSection">
+            <h2>My Previous Results</h2>
+            <div id="myResultsContainer">
+                <div class="text-center" style="padding: 2rem;">
+                    <p style="color: #95a5a6;">No results yet. Take an exam to see your scores!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script>
+        let studentId = null;
+        let studentName = null;
+        let selectedAnswer = null;
+        let timerInterval = null;
+        let currentExamId = null;
+
+        const socket = io('/student');
+
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            studentId = parseInt(urlParams.get('id'));
+            studentName = urlParams.get('name');
+
+            if (!studentId) {
+                window.location.href = '/';
+                return;
+            }
+
+            document.getElementById('studentInfo').textContent = `${studentName} (ID: ${studentId})`;
+            
+            // Setup socket listeners AFTER connection
+            socket.on('connect', () => {
+                console.log('✅ Connected to server');
+                socket.emit('join_student', {student_id: studentId});
+            });
+
+            socket.on('joined', (data) => {
+                console.log('✅ Joined room:', data);
+            });
+
+            // THIS IS THE KEY FIX - Listen for new exams
+            socket.on('exam_posted', (exam) => {
+                console.log('🔔 NEW EXAM RECEIVED:', exam);
+                showNotification(exam.title + ' - ' + exam.topic);
+                loadAvailableExams(); // Reload the exam list
+            });
+
+            socket.on('exam_timeout', (data) => {
+                if (data.student_id === studentId) {
+                    alert('Time expired! Exam auto-submitted.');
+                    showResults(data.score);
+                }
+            });
+
+            // Initial load
+            loadAvailableExams();
+            loadMyResults();
+        };
+
+        function showNotification(text) {
+            const notification = document.getElementById('notification');
+            const notificationText = document.getElementById('notificationText');
+            notificationText.textContent = text;
+            notification.style.display = 'block';
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 5000);
+        }
+
+        function loadAvailableExams() {
+            console.log('📋 Loading available exams...');
+            fetch('/api/student/available_exams')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('📋 Exams received:', data);
+                    const container = document.getElementById('availableExams');
+                    container.innerHTML = '';
+
+                    if (data.exams.length === 0) {
+                        container.innerHTML = `
+                            <div class="text-center" style="padding: 3rem;">
+                                <p style="font-size: 1.1rem; color: #7f8c8d;">No active exams right now</p>
+                                <p style="color: #95a5a6; margin-top: 0.5rem;">Waiting for teacher to post an exam...</p>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    data.exams.forEach(exam => {
+                        const examCard = document.createElement('div');
+                        examCard.className = 'exam-card';
+                        examCard.innerHTML = `
+                            <div style="display: flex; justify-content: space-between; align-items: start;">
+                                <div>
+                                    <h3 style="margin: 0 0 0.5rem 0; color: #2c3e50;">${exam.title}</h3>
+                                    <p style="color: #7f8c8d; margin: 0.3rem 0;">
+                                        <strong>Topic:</strong> ${exam.topic}
+                                    </p>
+                                    <p style="color: #7f8c8d; margin: 0.3rem 0;">
+                                        <strong>Duration:</strong> ${Math.floor(exam.duration / 60)} min ${exam.duration % 60} sec
+                                    </p>
+                                    <p style="color: #95a5a6; font-size: 0.9rem; margin: 0.5rem 0 0 0;">
+                                        Posted: ${new Date(exam.posted_time).toLocaleString()}
+                                    </p>
+                                </div>
+                                <button onclick="startExam(${exam.id}, '${exam.title}')" class="btn-primary">
+                                    Start Exam
+                                </button>
+                            </div>
+                        `;
+                        container.appendChild(examCard);
+                    });
+                })
+                .catch(err => {
+                    console.error('❌ Error loading exams:', err);
+                    document.getElementById('availableExams').innerHTML = `
+                        <div class="text-center" style="padding: 2rem;">
+                            <p style="color: #e74c3c;">Error loading exams. Please refresh.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        function startExam(examId, examTitle) {
+            currentExamId = examId;
+
+            fetch('/api/student/start_exam', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: studentId, exam_id: examId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('availableExamsSection').style.display = 'none';
+                    document.getElementById('resultsSection').style.display = 'none';
+                    document.getElementById('myResultsSection').style.display = 'none';
+                    document.getElementById('examSection').style.display = 'block';
+                    document.getElementById('examTitle').textContent = examTitle;
+
+                    loadQuestion();
+                    startTimer(data.duration);
+                } else {
+                    alert(data.message || 'Could not start exam');
+                }
+            })
+            .catch(err => {
+                console.error('Error starting exam:', err);
+                alert('Error starting exam. Please try again.');
+            });
+        }
+
+        function loadQuestion() {
+            fetch('/api/student/get_question', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: studentId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    document.getElementById('questionNumber').textContent = data.question_number;
+                    document.getElementById('totalQuestions').textContent = data.total_questions;
+                    document.getElementById('questionText').textContent = data.question;
+
+                    const optionsContainer = document.getElementById('optionsContainer');
+                    optionsContainer.innerHTML = '';
+                    selectedAnswer = null;
+
+                    data.options.forEach((option, index) => {
+                        const optionDiv = document.createElement('div');
+                        optionDiv.className = 'option-item';
+                        optionDiv.innerHTML = `
+                            <input type="radio" name="answer" id="option${index}" value="${option}">
+                            <label for="option${index}" style="cursor: pointer; flex: 1;">${option}</label>
+                        `;
+                        optionDiv.onclick = () => {
+                            document.querySelectorAll('.option-item').forEach(o => o.classList.remove('selected'));
+                            optionDiv.classList.add('selected');
+                            selectedAnswer = option;
+                            document.getElementById(`option${index}`).checked = true;
+                        };
+                        optionsContainer.appendChild(optionDiv);
+                    });
+                } else if (data.time_expired) {
+                    finishExam();
+                } else if (data.completed) {
+                    finishExam();
+                }
+            })
+            .catch(err => {
+                console.error('Error loading question:', err);
+                alert('Error loading question. Please try again.');
+            });
+        }
+
+        function submitAnswer() {
+            if (!selectedAnswer) {
+                alert('Please select an answer');
+                return;
+            }
+
+            fetch('/api/student/submit_answer', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: studentId, answer: selectedAnswer})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.next_question) {
+                    loadQuestion();
+                } else {
+                    finishExam();
+                }
+            })
+            .catch(err => {
+                console.error('Error submitting answer:', err);
+                alert('Error submitting answer. Please try again.');
+            });
+        }
+
+        function finishExam() {
+            if (confirm('Submit exam now? Cannot undo.')) {
+                fetch('/api/student/submit_exam', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({student_id: studentId})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showResults(data.score, data.final_marks, 'manual');
+                    }
+                })
+                .catch(err => {
+                    console.error('Error submitting exam:', err);
+                    alert('Error submitting exam. Please try again.');
+                });
+            }
+        }
+
+        function showResults(score, finalMarks = null, submissionType = 'manual') {
+            clearInterval(timerInterval);
+
+            if (finalMarks === null) finalMarks = score * 10;
+
+            document.getElementById('examSection').style.display = 'none';
+            document.getElementById('resultsSection').style.display = 'block';
+
+            document.getElementById('resultScore').textContent = score;
+            document.getElementById('resultMarks').textContent = finalMarks;
+            document.getElementById('resultType').textContent = submissionType.toUpperCase();
+
+            setTimeout(() => {
+                loadMyResults();
+                document.getElementById('availableExamsSection').style.display = 'block';
+                loadAvailableExams();
+            }, 2000);
+        }
+
+        function startTimer(duration) {
+            let timeLeft = duration;
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                const minutes = Math.floor(timeLeft / 60);
+                const seconds = timeLeft % 60;
+                document.getElementById('timeRemaining').textContent = 
+                    `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+                if (timeLeft <= 60) {
+                    document.getElementById('timeRemaining').style.background = '#dc3545';
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                }
+            }, 1000);
+        }
+
+        function loadMyResults() {
+            fetch('/api/student/my_results', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({student_id: studentId})
+            })
+            .then(response => response.json())
+            .then(data => {
+                const container = document.getElementById('myResultsContainer');
+
+                if (!data.success || data.results.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center" style="padding: 2rem;">
+                            <p style="color: #95a5a6;">No results yet. Take an exam to see scores!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = '<table style="width: 100%; margin-top: 1rem;"><thead><tr><th>Exam</th><th>Score</th><th>Marks</th><th>Type</th><th>Date</th></tr></thead><tbody id="resultsTableBody"></tbody></table>';
+
+                const tbody = document.getElementById('resultsTableBody');
+                data.results.forEach(result => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>${result.exam_title}</td>
+                        <td>${result.score}/10</td>
+                        <td>${result.final_marks}/100</td>
+                        <td><span class="badge badge-${result.submission_type}">${result.submission_type}</span></td>
+                        <td>${new Date(result.submission_time).toLocaleString()}</td>
+                    `;
+                    tbody.appendChild(row);
+                });
+            })
+            .catch(err => {
+                console.error('Error loading results:', err);
+            });
+        }
+
+        function viewAllResults() {
+            document.getElementById('resultsSection').style.display = 'none';
+            document.getElementById('myResultsSection').style.display = 'block';
+            document.getElementById('myResultsSection').scrollIntoView({behavior: 'smooth'});
+        }
+
+        function logout() {
+            fetch('/api/logout', {method: 'POST'})
+                .then(() => window.location.href = '/');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Dashboard - Distributed Exam System</title>
+    <link rel="stylesheet" href="static\css\styles.css">
+</head>
+<body>
+    <nav class="navbar">
+        <h1>👨‍🏫 Teacher Dashboard</h1>
+        <button onclick="logout()" class="btn-logout">Logout</button>
+    </nav>
+    
+    <div class="container">
+        <div class="section">
+            <h2>Post New Exam</h2>
+            <form id="postExamForm">
+                <div class="form-group">
+                    <label for="examDuration">Exam Duration (seconds)</label>
+                    <input type="number" id="examDuration" value="300" min="60" max="3600">
+                </div>
+                <button type="submit" class="btn-primary">Post Exam</button>
+            </form>
+        </div>
+        
+        <div class="section">
+            <h2>All Student Results</h2>
+            <button onclick="downloadResults()" class="btn-secondary">📥 Download Excel/CSV</button>
+            
+            <div class="table-container">
+                <table id="resultsTable">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Name</th>
+                            <th>Score</th>
+                            <th>Final Marks</th>
+                            <th>Type</th>
+                            <th>Server</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="resultsBody">
+                        <tr>
+                            <td colspan="7" class="text-center">No results yet</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>Exam Questions (10 Questions)</h2>
+            <div id="questionsList" class="questions-list"></div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="10\static\js\app.js"></script>
+    <script>
+        const socket = io('/teacher');
+        
+        socket.on('exam_submitted', (data) => {
+            console.log('New submission:', data);
+            loadResults();
+        });
+        
+        document.getElementById('postExamForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const duration = document.getElementById('examDuration').value;
+            
+            fetch('/api/teacher/post_exam', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({duration: parseInt(duration)})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Exam posted successfully! Students can now take the exam.');
+                }
+            });
+        });
+        
+        function loadResults() {
+            fetch('/api/teacher/results')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('resultsBody');
+                    tbody.innerHTML = '';
+                    
+                    if (data.results.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center">No results yet</td></tr>';
+                        return;
+                    }
+                    
+                    data.results.forEach(result => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${result.student_id}</td>
+                            <td>${result.student_name}</td>
+                            <td>${result.score}/10</td>
+                            <td>${result.final_marks}/100</td>
+                            <td><span class="badge badge-${result.submission_type}">${result.submission_type}</span></td>
+                            <td><span class="badge badge-${result.server_used}">${result.server_used}</span></td>
+                            <td>${new Date(result.submission_time).toLocaleString()}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                });
+        }
+        
+        function loadQuestions() {
+            fetch('/api/teacher/exams')
+                .then(response => response.json())
+                .then(data => {
+                    const questionsList = document.getElementById('questionsList');
+                    questionsList.innerHTML = '';
+                    
+                    data.questions.forEach((q, index) => {
+                        const qDiv = document.createElement('div');
+                        qDiv.className = 'question-item';
+                        qDiv.innerHTML = `
+                            <strong>Q${index + 1}:</strong> ${q.q}<br>
+                            <small>${q.options.join(' | ')}</small><br>
+                            <small><strong>Correct:</strong> ${q.correct}</small>
+                        `;
+                        questionsList.appendChild(qDiv);
+                    });
+                });
+        }
+        
+        function downloadResults() {
+            window.location.href = '/api/teacher/download_results';
+        }
+        
+        loadResults();
+        loadQuestions();
+        setInterval(loadResults, 5000);
+    </script>
+</body>
+</html>
