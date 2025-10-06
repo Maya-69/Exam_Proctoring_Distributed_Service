@@ -14,17 +14,21 @@ import os
 import logging
 from functools import wraps
 
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'distributed_exam_system_2025'
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
+
 # Suppress Flask's default terminal logs
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
+
 DB_PATH = "exam_system.db"
 REPLICATION_DB_PATH = "marksheet_replicated.db"
+
 
 students_data = {
     29: {"name": "Mayuresh", "password": "29"},
@@ -38,6 +42,7 @@ students_data = {
     56: {"name": "Student9", "password": "56"},
     57: {"name": "Student10", "password": "57"}
 }
+
 
 exam_questions_bank = {
     "Data Structures": [
@@ -66,6 +71,7 @@ exam_questions_bank = {
     ]
 }
 
+
 active_exams = {}
 posted_exams = []
 server_logs = []
@@ -82,6 +88,9 @@ replica_nodes = [
     {"id": "replica_2", "status": "ACTIVE", "sync_status": "IN_SYNC", "last_sync": None},
     {"id": "replica_3", "status": "ACTIVE", "sync_status": "IN_SYNC", "last_sync": None}
 ]
+
+# Map student_id to count of cheating warnings
+student_cheating_warnings = {}
 
 def init_database():
     conn = sqlite3.connect(DB_PATH)
@@ -113,6 +122,7 @@ def init_database():
     conn.commit()
     conn.close()
 
+
     conn2 = sqlite3.connect(REPLICATION_DB_PATH)
     cursor2 = conn2.cursor()
     for i in range(3):
@@ -128,7 +138,9 @@ def init_database():
     conn2.commit()
     conn2.close()
 
+
 init_database()
+
 
 def add_server_log(message, log_type="INFO"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -139,6 +151,7 @@ def add_server_log(message, log_type="INFO"):
     socketio.emit('server_log', log_entry, namespace='/server')
     print(f"[{timestamp}] [{log_type}] {message}")
 
+
 def sync_replicas():
     while True:
         time.sleep(20)
@@ -148,6 +161,7 @@ def sync_replicas():
             cursor.execute("SELECT student_id, SUM(final_marks) as total, COUNT(*) as exams FROM submissions GROUP BY student_id")
             data = cursor.fetchall()
             conn.close()
+
 
             conn2 = sqlite3.connect(REPLICATION_DB_PATH)
             cursor2 = conn2.cursor()
@@ -167,12 +181,15 @@ def sync_replicas():
         except Exception as e:
             add_server_log(f"REPLICATION ERROR: {e}", "ERROR")
 
+
 threading.Thread(target=sync_replicas, daemon=True).start()
+
 
 # HTTP Request tracking - ADD THIS SECTION
 @app.before_request
 def log_request_start():
     request.start_time = time.time()
+
 
 @app.after_request
 def log_request_end(response):
@@ -181,6 +198,7 @@ def log_request_end(response):
         method = request.method
         path = request.path
         status = response.status_code
+
 
         # Skip static files and socket.io
         if not path.startswith('/static') and not path.startswith('/socket.io') and not path.startswith('/css') and not path.startswith('/js'):
@@ -194,19 +212,24 @@ def log_request_end(response):
     except:
         pass
 
+
     return response
+
 
 @app.route('/')
 def index():
     return send_from_directory('templates', 'index.html')
 
+
 @app.route('/css/<path:filename>')
 def serve_css(filename):
     return send_from_directory('static/css', filename)
 
+
 @app.route('/js/<path:filename>')
 def serve_js(filename):
     return send_from_directory('static/js', filename)
+
 
 @app.route('/<path:filename>')
 def serve_page(filename):
@@ -214,11 +237,13 @@ def serve_page(filename):
         return send_from_directory('templates', filename)
     return "Not found", 404
 
+
 @app.route('/api/login', methods=['POST'])
 def login():
     data = request.json
     username = data.get('username')
     password = data.get('password')
+
 
     if username == 'server' and password == 'server':
         session['user_type'] = 'server'
@@ -245,7 +270,9 @@ def login():
         except ValueError:
             pass
 
+
     return jsonify({"success": False, "message": "Invalid credentials"})
+
 
 @app.route('/api/logout', methods=['POST'])
 def logout():
@@ -254,9 +281,11 @@ def logout():
     session.clear()
     return jsonify({"success": True})
 
+
 @app.route('/api/server/logs', methods=['GET'])
 def get_server_logs():
     return jsonify({"logs": server_logs[-50:]})
+
 
 @app.route('/api/server/stats', methods=['GET'])
 def get_server_stats():
@@ -270,7 +299,9 @@ def get_server_stats():
     active_students = cursor.fetchone()[0]
     conn.close()
 
+
     active_exam_students = [sid for sid, exam in active_exams.items() if exam['status'] == 'ACTIVE']
+
 
     return jsonify({
         "total_requests": total_requests,
@@ -285,12 +316,14 @@ def get_server_stats():
         "replica_status": replica_nodes
     })
 
+
 @app.route('/api/teacher/post_exam', methods=['POST'])
 def post_exam():
     data = request.json
     title = data.get('title', 'Exam')
     topic = data.get('topic', 'Data Structures')
     duration = data.get('duration', 300)
+
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -303,6 +336,7 @@ def post_exam():
     conn.commit()
     conn.close()
 
+
     exam_info = {
         "id": exam_id,
         "title": title,
@@ -313,10 +347,13 @@ def post_exam():
     }
     posted_exams.append(exam_info)
 
+
     add_server_log(f"TEACHER posted exam: {title} ({topic}) - {duration}s", "SUCCESS")
     socketio.emit('exam_posted', exam_info, namespace='/student')
 
+
     return jsonify({"success": True, "exam_id": exam_id})
+
 
 @app.route('/api/student/available_exams', methods=['GET'])
 def get_available_exams():
@@ -330,6 +367,7 @@ def get_available_exams():
     exams = cursor.fetchall()
     conn.close()
 
+
     exam_list = []
     for exam in exams:
         exam_list.append({
@@ -342,7 +380,9 @@ def get_available_exams():
             "status": exam[6]
         })
 
+
     return jsonify({"exams": exam_list})
+
 
 @app.route('/api/teacher/results', methods=['GET'])
 def get_all_results():
@@ -357,6 +397,7 @@ def get_all_results():
     """)
     submissions = cursor.fetchall()
     conn.close()
+
 
     results = []
     for sub in submissions:
@@ -373,7 +414,9 @@ def get_all_results():
             "deadlock": sub[7]
         })
 
+
     return jsonify({"results": results})
+
 
 @app.route('/api/teacher/download_results', methods=['GET'])
 def download_results():
@@ -389,13 +432,16 @@ def download_results():
     submissions = cursor.fetchall()
     conn.close()
 
+
     output = StringIO()
     writer = csv.writer(output)
     writer.writerow(['Student ID', 'Name', 'Exam', 'Score', 'Marks', 'Type', 'Time', 'Server', 'Deadlock'])
 
+
     for sub in submissions:
         name = students_data.get(sub[0], {}).get('name', f'Student {sub[0]}')
         writer.writerow([sub[0], name, sub[8], sub[2], sub[3], sub[4], sub[5], sub[6], 'Yes' if sub[7] else 'No'])
+
 
     output.seek(0)
     return Response(
@@ -404,6 +450,7 @@ def download_results():
         headers={"Content-disposition": "attachment; filename=all_exam_results.csv"}
     )
 
+
 @app.route('/api/student/start_exam', methods=['POST'])
 def start_exam():
     global total_requests, main_server_processed, backup_server_processed
@@ -411,8 +458,10 @@ def start_exam():
     student_id = data.get('student_id')
     exam_id = data.get('exam_id')
 
+
     if student_id in active_exams:
         return jsonify({"success": False, "message": "Already taking an exam"})
+
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -420,11 +469,14 @@ def start_exam():
     exam = cursor.fetchone()
     conn.close()
 
+
     if not exam:
         return jsonify({"success": False, "message": "Exam not available"})
 
+
     title, topic, duration = exam
     questions = random.sample(exam_questions_bank.get(topic, exam_questions_bank["Data Structures"]), 10)
+
 
     total_requests += 1
     try:
@@ -441,6 +493,7 @@ def start_exam():
         except queue.Full:
             return jsonify({"success": False, "message": "Server overloaded"})
 
+
     exam_session = {
         "student_id": student_id,
         "exam_id": exam_id,
@@ -456,35 +509,79 @@ def start_exam():
     }
     active_exams[student_id] = exam_session
 
-    def auto_submit_timer():
-        time.sleep(duration)
+
+    def monitoring_thread():
+        check_interval = 60  # check every 60 seconds
+        elapsed = 0
+        while elapsed < duration:
+            time.sleep(check_interval)
+            elapsed += check_interval
+            if student_id not in active_exams or active_exams[student_id]["status"] != "ACTIVE":
+                break
+            # Cheating monitor function
+            monitor_cheating_during_exam(student_id)
+        # Once time is up or exam ended, auto-submit if still active
         if student_id in active_exams and active_exams[student_id]["status"] == "ACTIVE":
             submit_exam_auto(student_id)
 
-    threading.Thread(target=auto_submit_timer, daemon=True).start()
+    threading.Thread(target=monitoring_thread, daemon=True).start()
+
     add_server_log(f"ACTIVE EXAM: Student {student_id} giving {title}", "INFO")
 
+
     return jsonify({"success": True, "duration": duration, "total_questions": 10, "server": server_used})
+
+
+def monitor_cheating_during_exam(student_id):
+    if student_id not in active_exams:
+        return
+    # Random chance to detect cheating 10% per check
+    if random.random() < 0.1:
+        count = student_cheating_warnings.get(student_id, 0) + 1
+        student_cheating_warnings[student_id] = count
+        session = active_exams.get(student_id)
+        if session:
+            base_score = session.get("score", 0)
+            exam_title = session.get("exam_title", "Unknown")
+            if count == 1:
+                # First offence - reduce score by 50%
+                new_score = base_score // 2
+                session["score"] = new_score
+                add_server_log(f"CHEATING WARNING: Student {student_id} caught cheating - score reduced to {new_score}/10 for exam '{exam_title}'", "WARNING")
+            elif count >= 2:
+                # Second offence - fail exam
+                session["score"] = 0
+                session["status"] = "CHEATING_FAILED"
+                add_server_log(f"CHEATING FAILED: Student {student_id} caught cheating again - exam '{exam_title}' failed with score 0", "ERROR")
+                submit_exam_auto(student_id)
+                student_cheating_warnings[student_id] = 0  # reset counter after failure
+
 
 @app.route('/api/student/get_question', methods=['POST'])
 def get_question():
     data = request.json
     student_id = data.get('student_id')
 
+
     if student_id not in active_exams:
         return jsonify({"success": False, "message": "No active exam"})
+
 
     session_data = active_exams[student_id]
     elapsed = time.time() - session_data["start_time"]
     remaining = max(0, session_data["duration"] - elapsed)
 
+
     if remaining <= 0:
         return jsonify({"success": False, "time_expired": True})
+
 
     if session_data["current_question"] >= len(session_data["questions"]):
         return jsonify({"success": False, "completed": True})
 
+
     current_q = session_data["questions"][session_data["current_question"]]
+
 
     return jsonify({
         "success": True,
@@ -495,32 +592,40 @@ def get_question():
         "remaining_time": int(remaining)
     })
 
+
 @app.route('/api/student/submit_answer', methods=['POST'])
 def submit_answer():
     data = request.json
     student_id = data.get('student_id')
     answer = data.get('answer')
 
+
     if student_id not in active_exams:
         return jsonify({"success": False})
+
 
     session_data = active_exams[student_id]
     current_q = session_data["questions"][session_data["current_question"]]
     session_data["answers"].append(answer)
 
+
     if answer == current_q["correct"]:
         session_data["score"] += 1
 
+
     session_data["current_question"] += 1
     return jsonify({"success": True, "next_question": session_data["current_question"] < 10})
+
 
 @app.route('/api/student/submit_exam', methods=['POST'])
 def submit_exam():
     data = request.json
     student_id = data.get('student_id')
 
+
     if student_id not in active_exams:
         return jsonify({"success": False})
+
 
     with submission_lock:
         session_data = active_exams[student_id]
@@ -531,6 +636,7 @@ def submit_exam():
         exam_id = session_data["exam_id"]
         exam_title = session_data["exam_title"]
 
+
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("""
@@ -540,42 +646,55 @@ def submit_exam():
         conn.commit()
         conn.close()
 
+
         add_server_log(f"MANUAL SUBMIT: Student {student_id} - {exam_title} - Score: {score}/10", "SUCCESS")
         socketio.emit('exam_submitted', {"student_id": student_id, "score": score}, namespace='/teacher')
         del active_exams[student_id]
 
+
     return jsonify({"success": True, "score": score, "final_marks": final_marks})
+
 
 def submit_exam_auto(student_id):
     if student_id not in active_exams:
         return
 
+
     with submission_lock:
         session_data = active_exams[student_id]
+        status = session_data.get("status", "ACTIVE")
+        if status == "CHEATING_FAILED":
+            final_score = 0
+        else:
+            final_score = session_data["score"]
+
         session_data["status"] = "AUTO_SUBMITTED"
-        score = session_data["score"]
-        final_marks = score * 10
+        final_marks = final_score * 10
         server_used = session_data["server"]
         exam_id = session_data["exam_id"]
         exam_title = session_data["exam_title"]
+
 
         conn = sqlite3.connect(DB_PATH)
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO submissions (student_id, exam_id, score, final_marks, submission_type, server_used, deadlock_detected)
             VALUES (?, ?, ?, ?, 'auto', ?, TRUE)
-        """, (student_id, exam_id, score, final_marks, server_used))
+        """, (student_id, exam_id, final_score, final_marks, server_used))
         conn.commit()
         conn.close()
 
-        add_server_log(f"AUTO SUBMIT: Student {student_id} - {exam_title} - Score: {score}/10 (TIMEOUT)", "WARNING")
-        socketio.emit('exam_timeout', {"student_id": student_id, "score": score}, room=f'student_{student_id}')
+
+        add_server_log(f"AUTO SUBMIT: Student {student_id} - {exam_title} - Score: {final_score}/10 (TIMEOUT)", "WARNING")
+        socketio.emit('exam_timeout', {"student_id": student_id, "score": final_score}, room=f'student_{student_id}')
         del active_exams[student_id]
+
 
 @app.route('/api/student/my_results', methods=['POST'])
 def get_my_results():
     data = request.json
     student_id = data.get('student_id')
+
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
@@ -590,6 +709,7 @@ def get_my_results():
     results = cursor.fetchall()
     conn.close()
 
+
     result_list = []
     for r in results:
         result_list.append({
@@ -602,23 +722,64 @@ def get_my_results():
             "server_used": r[6]
         })
 
+
     return jsonify({"success": True, "results": result_list})
+
 
 @socketio.on('connect', namespace='/server')
 def handle_server_connect():
     join_room('server_room')
     emit('connected', {'message': 'Connected'})
 
+
 @socketio.on('connect', namespace='/teacher')
 def handle_teacher_connect():
     join_room('teacher_room')
     emit('connected', {'message': 'Connected'})
+
 
 @socketio.on('join_student', namespace='/student')
 def handle_student_join(data):
     student_id = data.get('student_id')
     join_room(f'student_{student_id}')
     emit('joined', {'message': f'Student {student_id} connected'})
+
+def random_cheating_monitor():
+    check_interval = 20  # seconds
+    while True:
+        time.sleep(check_interval)
+        # Get list of students currently taking active exams
+        active_students = [sid for sid, e in active_exams.items() if e.get('status') == 'ACTIVE']
+        if not active_students:
+            continue
+        # Randomly pick one student
+        cheater = random.choice(active_students)
+        
+        # Track cheating warnings
+        count = student_cheating_warnings.get(cheater, 0) + 1
+        student_cheating_warnings[cheater] = count
+        
+        session = active_exams.get(cheater)
+        if session:
+            base_score = session.get('score', 0)
+            exam_title = session.get('exam_title', 'Unknown')
+            if count == 1:
+                # First cheat: reduce score by 50%
+                new_score = base_score // 2
+                session['score'] = new_score
+                add_server_log(f"CHEATING WARNING: Student {cheater} caught cheating - score reduced to {new_score}/10 for exam '{exam_title}'", "WARNING")
+            elif count >= 2:
+                # Second cheat: fail exam immediately
+                session['score'] = 0
+                session['status'] = 'CHEATING_FAILED'
+                add_server_log(f"CHEATING FAILED: Student {cheater} caught cheating again - exam '{exam_title}' failed with score 0", "ERROR")
+                submit_exam_auto(cheater)
+                student_cheating_warnings[cheater] = 0  # reset
+  
+# Start the thread on server start
+threading.Thread(target=random_cheating_monitor, daemon=True).start()
+
+
 
 if __name__ == '__main__':
     add_server_log("=== DISTRIBUTED EXAM SYSTEM STARTED ===", "INFO")
