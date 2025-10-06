@@ -43,7 +43,7 @@ git clone https://github.com/<your-username>/Exam_Proctoring_Distributed_Service
 cd Exam_Proctoring_Distributed_Service
 ```
 
-2. Create a Virtual Environment
+###2. Create a Virtual Environment
 ```bash
 python -m venv venv
 venv\Scripts\activate     # On Windows
@@ -51,12 +51,12 @@ venv\Scripts\activate     # On Windows
 source venv/bin/activate  # On macOS/Linux
 ```
 
-3. Install Dependencies
+###3. Install Dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Configuration
+###4. Configuration
 Open config.json (in the root folder).
 
 Set "host" to "localhost" or your system’s IP.
@@ -68,15 +68,15 @@ Example:
 }
 ```
 
-5. Run Services
-## Run 3 - 9
+###5. Run Services
+# Run 3 - 9
 Each of the service folders (3 to 9) run independantly just run ## Make sure to run this either in separate terminal or separate systems (if used ips)
 ```bash
 python server.py 
 python teacher.py 
 python client.py
 ```
-## Run 10
+# Run 10
 10 has its own config.json ## Runs on single app.py
 ```bash
 cd 10
