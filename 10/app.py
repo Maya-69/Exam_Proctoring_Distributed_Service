@@ -36,11 +36,11 @@ students_data = {
     42: {"name": "Aashna", "password": "42"},
     50: {"name": "Rohit", "password": "50"},
     52: {"name": "Rushikesh", "password": "52"},
-    53: {"name": "Student6", "password": "53"},
-    54: {"name": "Student7", "password": "54"},
-    55: {"name": "Student8", "password": "55"},
-    56: {"name": "Student9", "password": "56"},
-    57: {"name": "Student10", "password": "57"}
+    53: {"name": "Aaditya", "password": "53"},
+    54: {"name": "Aakash", "password": "54"},
+    55: {"name": "Ganesh", "password": "55"},
+    56: {"name": "Mahesh", "password": "56"},
+    57: {"name": "Suresh", "password": "57"}
 }
 
 
@@ -535,8 +535,8 @@ def start_exam():
 def monitor_cheating_during_exam(student_id):
     if student_id not in active_exams:
         return
-    # Random chance to detect cheating 10% per check
-    if random.random() < 0.1:
+    # Random chance to detect cheating 5% per check
+    if random.random() < 0.05:
         count = student_cheating_warnings.get(student_id, 0) + 1
         student_cheating_warnings[student_id] = count
         session = active_exams.get(student_id)
